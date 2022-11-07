@@ -9,7 +9,7 @@
 </head>
 <body>
     <div x-for='3'>hello world</div>
-    <p x-if="isShow">12345</p>
+    <p x-if="something.four[1].xxx">12345</p>
     <div x-for="10" class="box">
         <span>hallo</span>
         <p class="p" x-for="2">
@@ -21,12 +21,12 @@
 <script>
     xdata = {
         isShow: true,
-        something: {one: 'one',tow: {three: 'three'},four: [{x: 'x',xx: [99,88,77]},{xxx: 'xxxx'}]},
+        something: {one: 'one',tow: {three: 'three'},four: [{x: true},{xxx: true}]},
         test: { four: [1,2]}
     }
 
     function clickFn() {
-        xdata.isShow = !xdata.isShow
+        xdata.something.four[1].xxx = !xdata.something.four[1].xxx
     }
     
 </script>

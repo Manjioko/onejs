@@ -78,10 +78,10 @@ const handle = Object.freeze({
         // }
         return Reflect.get(target, key)
     },
-    set: function (target, key, value) {
+    set: function (target, key, value, receices) {
         console.log(`${key} 被赋值为 ${value}`)
-        ProxyDataTouched.prototype.entry(target, key, value)
-        return Reflect.set(target, key, value)
+        ProxyDataTouched.prototype.entry(target, key, value, receices)
+        return Reflect.set(target, key, value, receices)
     }
 })
 
@@ -117,22 +117,38 @@ function deepProxy(target, handle) {
 class ProxyDataTouched {
     constructor() { }
 
-    entry(target, key, value) {
-        this.findData(target,key)
+    entry(target, key, value, receices) {
+        this.findData(target, key, value, receices)
     }
-    findData(target, key) {
+    findData(target, key, value, receices) {
         const xdata = window.xdata
+        if (!data?._data) return
         if (xdata.hasOwnProperty(key)) {
-            console.log('found it!')
-            
             let el_Map = data._data[key]
-            console.log(key)
-            console.log(data._data)
             for (let [ key, value ] of el_Map) {
                 ParseEle.prototype.forEachEle(key)
             } 
         } else {
             console.log('found not!')
+            let data_ary = Object.keys(xdata)
+            let newKey
+            for (let d = 0; d < data_ary.length; d++) {
+                if (xdata[data_ary[d]] === receices) {
+                    if (Array.isArray(target)) {
+                        newKey = `${data_ary[d]}[${key}]` 
+                        console.log('newkey is : ' + newKey)
+                        break
+                    } else {
+                        newKey = `${data_ary[d]}.${key}`
+                        console.log('newkey is : ' + newKey)
+                        let el_Map = data._data[newKey]
+                        for (let [ key, value ] of el_Map) {
+                            ParseEle.prototype.forEachEle(key)
+                        } 
+                        break
+                    }
+                }
+            }
         }
     }
     findEvent(g) { }
@@ -253,12 +269,14 @@ function run(el) {
     if (!el) el = document.body
     // 第一进入时应该代理数据
     if (!data.isProxyed) {
-        window.xdata = flatObjectFrom2Level(window.xdata)
         window.xdata = deepProxy(window.xdata, handle)
+        window.xdata = flatObjectFrom2Level(window.xdata)
         // window.xdata = new Proxy(window.xdata, handle)
     }
-    // 启动节点遍历
+    // 启动节点遍历,数据双向绑定
     ParseEle.prototype.forEachEle(el)
 }
 
-run()
+window.onload = function() {
+    run()
+}
