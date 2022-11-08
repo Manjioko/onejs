@@ -1,6 +1,7 @@
 const data = {
     _data: {},
     _subObject: {},
+    _flatData: new Map(),
     isProxyed: false
 }
 // 从字符串字面量取 xdata 值
@@ -42,16 +43,53 @@ function flatObject(obj, name) {
 
 // 只允许对象带有一层级的对象或者数组数据，如果超过两层
 // 就需要复制到一级对象中
-function flatObjectFrom2Level(obj, name) {
-    if (typeof obj !== 'object') return obj
-    const core = function (name, key) {
-        const newName = Array.isArray(obj[name]) ? name + '[' + key + ']' : name + '.' + key
-        obj[newName] = obj[name][key]
-        flatObjectFrom2Level(obj, newName)
+// function flatObjectFrom2Level(obj, name) {
+//     if (typeof obj !== 'object') return obj
+//     const core = function (name, key) {
+//         const newName = Array.isArray(obj[name]) ? name + '[' + key + ']' : name + '.' + key
+//         obj[newName] = obj[name][key]
+//         flatObjectFrom2Level(obj, newName)
+//     }
+//     if (name) {
+//         Object.keys(obj[name]).forEach(nk => {
+//             if (typeof obj[name][nk] === 'object' && obj[name][nk] !== null) {
+//                 core(name, nk)
+//             }
+//         })
+//     } else {
+//         Object.keys(obj).forEach(k => {
+//             if (typeof obj[k] === 'object' && obj[k] !== null) {
+//                 Object.keys(obj[k]).forEach(sk => {
+//                     if (typeof obj[k][sk] === 'object' && obj[k][sk] !== null) {
+//                         core(k, sk)
+//                     }
+//                 })
+//             }
+//         })
+//     }
+
+//     return obj
+// }
+
+function flatObjectFrom2Level(obj, tmp = {}, name = '') {
+    if (typeof obj !== 'object' ) return obj
+    const core =  function(name, key) {
+        // console.log('tmp[name] ', obj[name] ?? tmp[name])
+        const newName = Array.isArray(obj[name] ?? tmp[name]) ? name + '[' + key + ']' : name + '.' + key
+        // obj[newName] = obj[name][key]
+        // console.log(newName,getStrValue(newName))
+        tmp[newName] = getStrValue(newName)
+        flatObjectFrom2Level(obj, tmp ,newName)
     }
-    if (name) {
-        Object.keys(obj[name]).forEach(nk => {
-            if (typeof obj[name][nk] === 'object' && obj[name][nk] !== null) {
+    if(name) {
+        // Object.keys(obj[name]).forEach(nk => {
+        //     if (typeof obj[name][nk] === 'object' && obj[name][nk] !== null) {
+        //         core(name, nk)
+        //     }
+        // })
+
+        Object.keys(tmp[name]).forEach(nk => {
+            if (typeof tmp[name][nk] === 'object' && tmp[name][nk] !== null) {
                 core(name, nk)
             }
         })
@@ -60,14 +98,18 @@ function flatObjectFrom2Level(obj, name) {
             if (typeof obj[k] === 'object' && obj[k] !== null) {
                 Object.keys(obj[k]).forEach(sk => {
                     if (typeof obj[k][sk] === 'object' && obj[k][sk] !== null) {
-                        core(k, sk)
+                        core(k,sk)
                     }
                 })
             }
         })
     }
 
-    return obj
+    const map = new Map()
+    Object.keys(tmp).forEach(key => {
+        map.set(tmp[key], key)
+    })
+    return map
 }
 
 // 代理 handle
@@ -80,7 +122,9 @@ const handle = Object.freeze({
     },
     set: function (target, key, value, receices) {
         console.log(`${key} 被赋值为 ${value}`)
-        ProxyDataTouched.prototype.entry(target, key, value, receices)
+        setTimeout(() => {
+            ProxyDataTouched.prototype.entry(target, key, value, receices)
+        }, 0);
         return Reflect.set(target, key, value, receices)
     }
 })
@@ -114,6 +158,7 @@ function deepProxy(target, handle) {
     }
 }
 
+// xdata 数据发生变更时，从这里开始渲染数据
 class ProxyDataTouched {
     constructor() { }
 
@@ -132,22 +177,35 @@ class ProxyDataTouched {
             console.log('found not!')
             let data_ary = Object.keys(xdata)
             let newKey
-            for (let d = 0; d < data_ary.length; d++) {
-                if (xdata[data_ary[d]] === receices) {
-                    if (Array.isArray(target)) {
-                        newKey = `${data_ary[d]}[${key}]` 
-                        console.log('newkey is : ' + newKey)
-                        break
-                    } else {
-                        newKey = `${data_ary[d]}.${key}`
-                        console.log('newkey is : ' + newKey)
-                        let el_Map = data._data[newKey]
-                        for (let [ key, value ] of el_Map) {
-                            ParseEle.prototype.forEachEle(key)
-                        } 
-                        break
-                    }
-                }
+            // for (let d = 0; d < data_ary.length; d++) {
+            //     if (xdata[data_ary[d]] === receices) {
+            //         if (Array.isArray(target)) {
+            //             newKey = `${data_ary[d]}[${key}]` 
+            //             console.log('newkey is : ' + newKey)
+            //             break
+            //         } else {
+            //             newKey = `${data_ary[d]}.${key}`
+            //             console.log('newkey is : ' + newKey)
+            //             let el_Map = data._data[newKey]
+            //             for (let [ key, value ] of el_Map) {
+            //                 ParseEle.prototype.forEachEle(key)
+            //             } 
+            //             break
+            //         }
+            //     }
+            // }
+
+            let oldKey = data._flatData.get(receices)
+            if (Array.isArray(target)) {
+                newKey = `${oldKey}[${key}]` 
+                console.log('ary newkey is : ' + newKey)
+            } else {
+                newKey = `${oldKey}.${key}`
+                console.log('obj newkey is : ' + newKey)
+                let el_Map = data._data[newKey]
+                for (let [ key, value ] of el_Map) {
+                    ParseEle.prototype.forEachEle(key)
+                } 
             }
         }
     }
@@ -256,6 +314,7 @@ class IfEventHanle {
     // 渲染真实 dom
     render(el, attr) {
         const isShow = getStrValue(attr.value)
+        console.log('isshow is ', isShow, attr.value)
         if (!!isShow) {
             el.style.display = 'block'
         } else {
@@ -270,7 +329,8 @@ function run(el) {
     // 第一进入时应该代理数据
     if (!data.isProxyed) {
         window.xdata = deepProxy(window.xdata, handle)
-        window.xdata = flatObjectFrom2Level(window.xdata)
+        // window.xdata = flatObjectFrom2Level(window.xdata)
+        data._flatData = flatObjectFrom2Level(window.xdata)
         // window.xdata = new Proxy(window.xdata, handle)
     }
     // 启动节点遍历,数据双向绑定

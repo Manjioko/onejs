@@ -22,11 +22,14 @@
     xdata = {
         isShow: true,
         something: {one: 'one',tow: {three: 'three'},four: [{x: true},{xxx: true}]},
-        test: { four: [1,2]}
+        test: { four: [1,2]},
+        ary: [1,2,3, {ary1: [0,2,3], ary2: {ary3: 3}}]
     }
 
     function clickFn() {
-        xdata.something.four[1].xxx = !xdata.something.four[1].xxx
+        // xdata.something.four[1].xxx = !xdata.something.four[1].xxx
+        // xdata.ary.push(1)
+        xdata.test['ll'] = 'xxxxx'
     }
     
 </script>
