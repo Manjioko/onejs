@@ -109,6 +109,11 @@ function flatObjectFrom2Level(obj, tmp = {}, name = '') {
     Object.keys(tmp).forEach(key => {
         map.set(tmp[key], key)
     })
+    Object.keys(obj).forEach(key => {
+        if (typeof obj[key] === 'object' && obj[key] !== null) {
+            map.set(obj[key], key)
+        }
+    })
     return map
 }
 
@@ -169,7 +174,7 @@ class ProxyDataTouched {
         const xdata = window.xdata
         if (!data?._data) return
         if (xdata.hasOwnProperty(key)) {
-            let el_Map = data._data[key]
+            let el_Map = data._data[key] ?? []
             for (let [ key, value ] of el_Map) {
                 ParseEle.prototype.forEachEle(key)
             } 
@@ -202,7 +207,7 @@ class ProxyDataTouched {
             } else {
                 newKey = `${oldKey}.${key}`
                 console.log('obj newkey is : ' + newKey)
-                let el_Map = data._data[newKey]
+                let el_Map = data._data[newKey] ?? []
                 for (let [ key, value ] of el_Map) {
                     ParseEle.prototype.forEachEle(key)
                 } 
