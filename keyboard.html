@@ -8,12 +8,12 @@
     
 </head>
 <body>
-    <div x-for='3'>hello world</div>
-    <p x-if="something.four[1].xxx">12345</p>
-    <div x-for="10" class="box">
+    <div>hello world</div>
+    <p x-if="test.four[1]">12345</p>
+    <div x-for="item in xdata.ary" class="box">
         <span>hallo</span>
-        <p class="p" x-for="2">
-            <a href="/" x-for="2" >点这里</a>
+        <p class="p">
+            <a href="/" >点这里</a>
         </p>
     </div>
     <button onclick="clickFn()">click</button>
@@ -29,7 +29,8 @@
     function clickFn() {
         // xdata.something.four[1].xxx = !xdata.something.four[1].xxx
         // xdata.ary.push(1)
-        xdata.test['ll'] = 'xxxxx'
+        // xdata.test['ll'] = 'xxxxx'
+        xdata.test.four[1] = !xdata.test.four[1]
     }
     
 </script>

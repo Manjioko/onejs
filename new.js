@@ -4,9 +4,13 @@ const data = {
     _flatData: new Map(),
     isProxyed: false
 }
+// 运行字面量命令
+function runStrcmd(str) {
+    return new Function(`return ${str}`)()
+}
 // 从字符串字面量取 xdata 值
-function getStrValue(str) {
-    return new Function(`return window.xdata.${str}`).call(window)
+function getXdataFromStr(str) {
+    return new Function(`return window.xdata.${str}`)()
 }
 // 类型判断
 function typeIs(data) {
@@ -41,36 +45,7 @@ function flatObject(obj, name) {
     return res
 }
 
-// 只允许对象带有一层级的对象或者数组数据，如果超过两层
-// 就需要复制到一级对象中
-// function flatObjectFrom2Level(obj, name) {
-//     if (typeof obj !== 'object') return obj
-//     const core = function (name, key) {
-//         const newName = Array.isArray(obj[name]) ? name + '[' + key + ']' : name + '.' + key
-//         obj[newName] = obj[name][key]
-//         flatObjectFrom2Level(obj, newName)
-//     }
-//     if (name) {
-//         Object.keys(obj[name]).forEach(nk => {
-//             if (typeof obj[name][nk] === 'object' && obj[name][nk] !== null) {
-//                 core(name, nk)
-//             }
-//         })
-//     } else {
-//         Object.keys(obj).forEach(k => {
-//             if (typeof obj[k] === 'object' && obj[k] !== null) {
-//                 Object.keys(obj[k]).forEach(sk => {
-//                     if (typeof obj[k][sk] === 'object' && obj[k][sk] !== null) {
-//                         core(k, sk)
-//                     }
-//                 })
-//             }
-//         })
-//     }
-
-//     return obj
-// }
-
+// 将一个数组的多层嵌套模式结构出单层对象的数据模式，返回一个 Map 数据结构
 function flatObjectFrom2Level(obj, tmp = {}, name = '') {
     if (typeof obj !== 'object' ) return obj
     const core =  function(name, key) {
@@ -78,7 +53,7 @@ function flatObjectFrom2Level(obj, tmp = {}, name = '') {
         const newName = Array.isArray(obj[name] ?? tmp[name]) ? name + '[' + key + ']' : name + '.' + key
         // obj[newName] = obj[name][key]
         // console.log(newName,getStrValue(newName))
-        tmp[newName] = getStrValue(newName)
+        tmp[newName] = getXdataFromStr(newName)
         flatObjectFrom2Level(obj, tmp ,newName)
     }
     if(name) {
@@ -173,44 +148,29 @@ class ProxyDataTouched {
     findData(target, key, value, receices) {
         const xdata = window.xdata
         if (!data?._data) return
-        if (xdata.hasOwnProperty(key)) {
-            let el_Map = data._data[key] ?? []
+        // 追踪到数据变化，更新元素
+        const eleHandle = function(rekey) {
+            let el_Map = data._data[rekey] ?? []
             for (let [ key, value ] of el_Map) {
                 ParseEle.prototype.forEachEle(key)
-            } 
+            }
+        }
+        // 先查看key是否存在于xdata中，不存在则证明是一个
+        // 多层次的数据结构，应该在data._flatData里面寻找
+        if (xdata.hasOwnProperty(key)) {
+             eleHandle(key)
         } else {
             console.log('found not!')
-            let data_ary = Object.keys(xdata)
-            let newKey
-            // for (let d = 0; d < data_ary.length; d++) {
-            //     if (xdata[data_ary[d]] === receices) {
-            //         if (Array.isArray(target)) {
-            //             newKey = `${data_ary[d]}[${key}]` 
-            //             console.log('newkey is : ' + newKey)
-            //             break
-            //         } else {
-            //             newKey = `${data_ary[d]}.${key}`
-            //             console.log('newkey is : ' + newKey)
-            //             let el_Map = data._data[newKey]
-            //             for (let [ key, value ] of el_Map) {
-            //                 ParseEle.prototype.forEachEle(key)
-            //             } 
-            //             break
-            //         }
-            //     }
-            // }
-
             let oldKey = data._flatData.get(receices)
+            // 区分数组和对象，数组用 [key] 对象用 .
             if (Array.isArray(target)) {
-                newKey = `${oldKey}[${key}]` 
+                const newKey = `${oldKey}[${key}]` 
                 console.log('ary newkey is : ' + newKey)
+                eleHandle(newKey)
             } else {
-                newKey = `${oldKey}.${key}`
+                const newKey = `${oldKey}.${key}`
                 console.log('obj newkey is : ' + newKey)
-                let el_Map = data._data[newKey] ?? []
-                for (let [ key, value ] of el_Map) {
-                    ParseEle.prototype.forEachEle(key)
-                } 
+                eleHandle(newKey)
             }
         }
     }
@@ -288,11 +248,39 @@ class ForEventHanle {
     constructor() { }
 
     entry(el, attr) {
-        // console.log(el, attr)
+        // console.log(el, attr.value)
+        // 数字的话，就先不做任何事
+        // if (!window.isNaN(attr.value)) return
+        // const value = runStrcmd(attr.value)
+        // console.log(value)
+        let for_data = this.parseStr(attr.value)
+        let ary = runStrcmd(for_data.body)
+        // 目前值做数组循环
+        if (!Array.isArray(ary)) return
+        let key = data._flatData.get(ary)
+        this.dataSave(el, key)
         // 存储映射关系
         // this.dataSave(el, attr)
     }
-    dataSave(el, attr) { }
+    dataSave(el, key) {
+        const item = data._data[key]
+        const xEvent = { for: fn => fn() }
+        if (item) {
+            item.set(el, { xEvent })
+        } else {
+            data._data[key] = new Map([[el, { xEvent }]])
+        }
+    }
+    parseStr(str) {
+        if (str.includes('in')) {
+            let str_ary = str.split('in')
+            let item = str_ary[0].trim()
+            let body = str_ary[1].trim()
+            return { item, body }
+        }
+
+        return { item: '', body: '' }
+    }
     render() { }
 }
 
@@ -318,8 +306,9 @@ class IfEventHanle {
     }
     // 渲染真实 dom
     render(el, attr) {
-        const isShow = getStrValue(attr.value)
-        console.log('isshow is ', isShow, attr.value)
+        // console.log(attr.value)
+        const isShow = getXdataFromStr(attr.value)
+        // console.log('isshow is ', isShow, attr.value)
         if (!!isShow) {
             el.style.display = 'block'
         } else {
