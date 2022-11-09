@@ -150,6 +150,11 @@ class ProxyDataTouched {
         if (!data?._data) return
         // 追踪到数据变化，更新元素
         const eleHandle = function(rekey) {
+            // 数组变化时处理数组
+            if (rekey.endsWith(']')) {
+                var r = rekey.replace(/^(.+)(\[\w+\])$/g, (m,v,v2) => v2 ? v : '')
+            }
+            if (r) rekey = r
             let el_Map = data._data[rekey] ?? []
             for (let [ key, value ] of el_Map) {
                 ParseEle.prototype.forEachEle(key)
@@ -158,9 +163,11 @@ class ProxyDataTouched {
         // 先查看key是否存在于xdata中，不存在则证明是一个
         // 多层次的数据结构，应该在data._flatData里面寻找
         if (xdata.hasOwnProperty(key)) {
-             eleHandle(key)
+            // console.log('found it!')
+            console.log('newkey is : ' + newKey)
+            eleHandle(key)
         } else {
-            console.log('found not!')
+            // console.log('found not!')
             let oldKey = data._flatData.get(receices)
             // 区分数组和对象，数组用 [key] 对象用 .
             if (Array.isArray(target)) {
@@ -259,6 +266,7 @@ class ForEventHanle {
         if (!Array.isArray(ary)) return
         let key = data._flatData.get(ary)
         this.dataSave(el, key)
+        this.render(el, attr, ary)
         // 存储映射关系
         // this.dataSave(el, attr)
     }
@@ -281,7 +289,15 @@ class ForEventHanle {
 
         return { item: '', body: '' }
     }
-    render() { }
+    render(el, attr, ary) {
+        // 遍历之前应该删掉 :for 属性，因为重复后，for 已经不需要了
+        // el.setAttribute('x-id',IDGenerator())
+        const parent = el.parentNode
+        for (let i = 1; i < ary.length; i++) {
+            const new_el = el.cloneNode(true)
+            parent.insertBefore(new_el, el)
+        }
+    }
 }
 
 class IfEventHanle {
