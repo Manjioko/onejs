@@ -92,6 +92,16 @@ function flatObjectFrom2Level(obj, tmp = {}, name = '') {
     return map
 }
 
+// id 生成器
+function IDGenerator() {
+    return Number(Math
+        .random()
+        .toString()
+        .slice(2))
+        .toString(16)
+        // .replace(/(\D)/g, (_,v) => Math.random() > 0.5 ? v.toUpperCase() : v)
+}
+
 // 代理 handle
 const handle = Object.freeze({
     get: function (target, key) {
@@ -138,7 +148,7 @@ function deepProxy(target, handle) {
     }
 }
 
-// xdata 数据发生变更时，从这里开始渲染数据
+// xdata 数据发生变更时，从这里开始渲染元素
 class ProxyDataTouched {
     constructor() { }
 
@@ -160,8 +170,8 @@ class ProxyDataTouched {
                 ParseEle.prototype.forEachEle(key)
             }
         }
-        // 先查看key是否存在于xdata中，不存在则证明是一个
-        // 多层次的数据结构，应该在data._flatData里面寻找
+        // 先查看key是否存在于 xdata 中，不存在则证明是一个
+        // 多层次的数据结构，应该在 data._flatData 里面寻找
         if (xdata.hasOwnProperty(key)) {
             // console.log('found it!')
             console.log('newkey is : ' + newKey)
@@ -184,6 +194,7 @@ class ProxyDataTouched {
     findEvent(g) { }
 }
 
+// 解析元素结构的入口，也是整个页面变动的入口
 class ParseEle {
     constructor() { }
 
@@ -229,6 +240,8 @@ class ParseEle {
     }
 }
 
+// 属性包含的不同事件在这里分发，这个类负责将不同事件
+// 分发到不同的处理逻辑去
 class ParseDiffEvent {
     constructor() { }
 
@@ -251,28 +264,25 @@ class ParseDiffEvent {
     doubleDotEventParse() { }
 }
 
+// for 事件的处理逻辑
 class ForEventHanle {
     constructor() { }
 
     entry(el, attr) {
-        // console.log(el, attr.value)
         // 数字的话，就先不做任何事
         // if (!window.isNaN(attr.value)) return
         // const value = runStrcmd(attr.value)
-        // console.log(value)
         let for_data = this.parseStr(attr.value)
         let ary = runStrcmd(for_data.body)
         // 目前值做数组循环
         if (!Array.isArray(ary)) return
         let key = data._flatData.get(ary)
         this.dataSave(el, key)
-        this.render(el, attr, ary)
-        // 存储映射关系
-        // this.dataSave(el, attr)
+        this.render(el, key, ary)
     }
     dataSave(el, key) {
         const item = data._data[key]
-        const xEvent = { for: fn => fn() }
+        const xEvent = { for: { cb: fn => fn(), id: IDGenerator() } }
         if (item) {
             item.set(el, { xEvent })
         } else {
@@ -289,22 +299,34 @@ class ForEventHanle {
 
         return { item: '', body: '' }
     }
-    render(el, attr, ary) {
+    render(el, key, ary) {
         // 遍历之前应该删掉 :for 属性，因为重复后，for 已经不需要了
-        // el.setAttribute('x-id',IDGenerator())
-        const parent = el.parentNode
+        const id = data._data[key].get(el).xEvent.for.id
+        let parent = el.parentNode
+        let child = [...parent.children]
+        child.forEach(child_el => {
+            if(child_el.getAttribute('x-for-id') && child_el !== el) {
+                child_el.remove()
+            }
+        })
+        // 重新设置 x-for-id 属性
+        el.setAttribute('x-for-id',id)
         for (let i = 1; i < ary.length; i++) {
             const new_el = el.cloneNode(true)
+            new_el.removeAttribute('x-for')
             parent.insertBefore(new_el, el)
+            // 复制出的子元素也要重新遍历一遍
+            // 因为子元素内部可能有其他的事件还未处理
+            ParseEle.prototype.forEachEle(new_el)
         }
     }
 }
 
+// if 事件的处理逻辑
 class IfEventHanle {
     constructor() { }
 
     entry(el, attr) {
-        // console.log(el, attr)
         // 存储映射关系
         this.dataSave(el, attr)
         // 渲染真实 dom
@@ -322,9 +344,7 @@ class IfEventHanle {
     }
     // 渲染真实 dom
     render(el, attr) {
-        // console.log(attr.value)
         const isShow = getXdataFromStr(attr.value)
-        // console.log('isshow is ', isShow, attr.value)
         if (!!isShow) {
             el.style.display = 'block'
         } else {
