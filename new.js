@@ -250,6 +250,7 @@ class ParseDiffEvent {
         const name = attr.name.slice(2)
         switch (name) {
             case 'for':
+                // console.log(el)
                 ForEventHanle.prototype.entry(el, attr)
                 break
             case 'if':
@@ -272,20 +273,25 @@ class ForEventHanle {
         // 数字的话，就先不做任何事
         // if (!window.isNaN(attr.value)) return
         // const value = runStrcmd(attr.value)
-        let for_data = this.parseStr(attr.value)
-        let ary = runStrcmd(for_data.body)
+        const rightData = this.parseStr(attr.value)
+        const ary = runStrcmd(rightData.body)
+        const leftData = this.parseItem(rightData.item)
+        // console.log(`item is ${leftData.item} and index is: ${leftData.index}`)
         // 目前值做数组循环
         if (!Array.isArray(ary)) return
-        let key = data._flatData.get(ary)
-        this.dataSave(el, key)
-        this.render(el, key, ary)
+        const key = data._flatData.get(ary)
+        this.dataSave(el, key, leftData, ary.length - 1)
+        this.render(el, key, ary, leftData)
     }
-    dataSave(el, key) {
+    dataSave(el, key, leftData, index) {
+        // console.log(el, key)
         const item = data._data[key]
-        const xEvent = { for: { cb: fn => fn(), id: IDGenerator() } }
+        const xEvent = { for: { cb: fn => fn(), id: IDGenerator(), leftData: {...leftData}, index } }
         if (item) {
+            console.log(item)
             item.set(el, { xEvent })
         } else {
+            console.log('---------',el, key)
             data._data[key] = new Map([[el, { xEvent }]])
         }
     }
@@ -299,6 +305,27 @@ class ForEventHanle {
 
         return { item: '', body: '' }
     }
+    parseItem(item) {
+        const hasBrace = /\(.+\)/.test(item)
+        if (hasBrace) {
+            const unwrapBrace = item.match(/\((.+)\)/)[1]
+            const hasComma = unwrapBrace.includes(',')
+            if (hasComma) {
+                const itemSplit = unwrapBrace.split(',')
+                return { item: itemSplit[0].trim(), index: itemSplit[1].trim() }
+            } else {
+                return { item: unwrapBrace, index: '' }
+            }
+        }
+        return { item: item, index: '' }
+    }
+    // 节点删除后，需要擦除 data._data 内记录的节点信息
+    removeRecord(key, el) {
+        // console.log(key,el)
+        data._data[key].delete(el)
+        // console.log(key)
+    }
+
     render(el, key, ary) {
         // 遍历之前应该删掉 :for 属性，因为重复后，for 已经不需要了
         const id = data._data[key].get(el).xEvent.for.id
@@ -306,18 +333,32 @@ class ForEventHanle {
         let child = [...parent.children]
         child.forEach(child_el => {
             if(child_el.getAttribute('x-for-id') && child_el !== el) {
+                // console.log(key)
                 child_el.remove()
             }
+            // if (child_el === el) {
+            //     this.removeRecord(key,child_el)
+            // }
         })
         // 重新设置 x-for-id 属性
         el.setAttribute('x-for-id',id)
+        // 当数组没有数据时，应该隐藏元元素，以达到页面上的合理效果
+        // 即有多少个数组元素，就有多少个元素
+        if (!ary.length) {
+            el.style.display = 'none'
+            return
+        } else {
+            if (el.style.display === 'none') {
+                el.style.display = ''
+            }
+        }
         for (let i = 1; i < ary.length; i++) {
             const new_el = el.cloneNode(true)
             new_el.removeAttribute('x-for')
             parent.insertBefore(new_el, el)
             // 复制出的子元素也要重新遍历一遍
             // 因为子元素内部可能有其他的事件还未处理
-            ParseEle.prototype.forEachEle(new_el)
+            // ParseEle.prototype.forEachEle(new_el)
         }
     }
 }
