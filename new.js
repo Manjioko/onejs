@@ -198,24 +198,26 @@ class ProxyDataTouched {
 class ParseEle {
     constructor() { }
 
-    forEachEle(el) {
+    forEachEle(el, key, fn) {
+        // console.log('------------------------',key)
         // 保证 el 是一个 dom 节点
         if (!el && !el instanceof HTMLElement) return []
         // 分两层，一层是传入的 el, 一层是 el 的子元素
-        this.parseAttributes(el)
+        fn?.(el, key) ?? this.parseAttributes(el)
         // 处理子元素
-        this.childEleHanle(el)
+        this.childEleHanle(el, key, fn)
     }
 
-    childEleHanle(el) {
+    childEleHanle(el, key, fn) {
+        // console.log('+++++++++',key)
         // 子元素集合
         const child_arr = [...el.children]
         // 操作 child_arr 存储对应的数据结构或者做递归处理
         for (let child_el of child_arr) {
-            this.parseAttributes(child_el)
+            fn?.(child_arr, key) ?? this.parseAttributes(child_el)
             // 发现节点存在子节点则递归
             if (child_el.children.length) {
-                this.childEleHanle(child_el)
+                this.childEleHanle(child_el, key, fn)
             }
         }
     }
@@ -286,12 +288,17 @@ class ForEventHanle {
     dataSave(el, key, leftData, index) {
         // console.log(el, key)
         const item = data._data[key]
+        // for 复刻出来的元素，不应该保存数据，只保存母本
+        // 不然后续数据会膨胀并且难以清理干净
+        // console.log(el.attributes, el)
+        if (el?.getAttribute('copy')) return
         const xEvent = { for: { cb: fn => fn(), id: IDGenerator(), leftData: {...leftData}, index } }
         if (item) {
-            console.log(item)
+            // console.log('>>>>>>>>>>>>>>>>>>>>',el)
+            // item.clear()
             item.set(el, { xEvent })
         } else {
-            console.log('---------',el, key)
+            // console.log('---------',el, key)
             data._data[key] = new Map([[el, { xEvent }]])
         }
     }
@@ -320,24 +327,32 @@ class ForEventHanle {
         return { item: item, index: '' }
     }
     // 节点删除后，需要擦除 data._data 内记录的节点信息
-    removeRecord(key, el) {
-        // console.log(key,el)
-        data._data[key].delete(el)
-        // console.log(key)
-    }
+    // removeRecord(key, el) {
+    //     // console.log(key,el)
+    //     data._data[key].delete(el)
+    //     // console.log(key)
+    // }
 
     render(el, key, ary) {
         // 遍历之前应该删掉 :for 属性，因为重复后，for 已经不需要了
         const id = data._data[key].get(el).xEvent.for.id
         let parent = el.parentNode
         let child = [...parent.children]
+        // console.log(el)
         child.forEach(child_el => {
             if(child_el.getAttribute('x-for-id') && child_el !== el) {
-                // console.log(key)
+                // console.log(key, child_el)
                 child_el.remove()
             }
-            // if (child_el === el) {
-            //     this.removeRecord(key,child_el)
+            // if (child_el.getAttribute('x-for-id') && child_el === el) {
+            //     console.log(key, child_el)
+            //     // ParseEle.prototype.forEachEle(child_el, key, function(ele, key) {
+            //     //     console.log('>>>>>>>>>>>>>',key, ele)
+            //     //     if (data._data[key].has(ele)) {
+            //     //         console.log(data._data[key])
+            //     //         data._data[key].delete(ele)
+            //     //     }
+            //     // })
             // }
         })
         // 重新设置 x-for-id 属性
@@ -352,13 +367,17 @@ class ForEventHanle {
                 el.style.display = ''
             }
         }
+        console.log('>>>>>>>>>>>>>',el, ary)
         for (let i = 1; i < ary.length; i++) {
             const new_el = el.cloneNode(true)
+            // console.log(new_el.getAttribute('copy'))
             new_el.removeAttribute('x-for')
+            // console.log(new_el)
             parent.insertBefore(new_el, el)
+            new_el.setAttribute('copy', true)
             // 复制出的子元素也要重新遍历一遍
             // 因为子元素内部可能有其他的事件还未处理
-            // ParseEle.prototype.forEachEle(new_el)
+            // ParseEle.prototype.forEachEle(new_el) 
         }
     }
 }
