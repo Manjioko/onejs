@@ -11,24 +11,24 @@
     <script src="./utils/subscript.js"></script>
 </head>
 <body>
-    <div>hello world</div>
-    <p x-if="test.four[1]">12345</p>
+    <!-- <div>hello world</div> -->
+    <!-- <p x-if="xdata.sary.abc.cde[0].a">12345</p> -->
     <div x-for="item in xdata.ary" class="box">
-        <span x-for="(it, idx) in xdata.sary.abc.cde">{{item.a}}</span>
+        <div x-for="(dd, idx) in xdata.sary.abc.cde">tip: {{ dd.a }}</div>
         <p class="p">
             <a href="/" >点这里</a>
         </p>
     </div>
-    <button onclick="clickFn()">click</button>
+    <button onclick="clickFn()" class="btn">click</button>
 </body>
 <script>
     xdata = {
         isShow: true,
         something: {one: 'one',tow: {three: 'three'},four: [{x: true},{xxx: true}]},
-        test: { four: [1,2]},
-        ary: [1,2,3, {ary1: [0,2,3], ary2: {ary3: 3}}],
+        test: { four: [1,true]},
+        ary: [{title: '七月雷雨'},{title: '九月流火'},{title: '十月硕鼠在梁上'}],
         sary: {abc: {
-            cde: [{a:'av'},{a:'av'},{a:'av'}]
+            cde: [{a:'七月雷雨'},{a:'九月流火'},{a:'十月硕鼠在梁上'}]
         }}
     }
 
@@ -36,19 +36,46 @@
         // xdata.something.four[1].xxx = !xdata.something.four[1].xxx
         // xdata.ary.push(1)
         // xdata.test['ll'] = 'xxxxx'
-        xdata.ary.pop(1)
+        // xdata.ary.push(1)
+        // xdata.sary.abc.cde[0].a = !xdata.sary.abc.cde[0].a
         // xdata.sary.abc.cde.pop()
+        xdata.sary.abc.cde.push({a: '隆冬明火'})
     }
+
+    // let time = setInterval(() => {
+    //     xdata.ary.push(1)
+    //     xdata.sary.abc.cde[0].a = !xdata.sary.abc.cde[0].a
+    // }, 1000)
+    // setTimeout(() => {
+    //     clearInterval(time)
+    // }, 10000)
     // console.log(document.querySelector('[x-d="d"]'))
     
 </script>
 <style>
     .box {
-        width: 100px;
+        width: 300px;
         height: 100px;
-        background-color: aqua;
+        background-color: #65baff8a;
         display: inline-block;
         margin: 10px;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 0 3px #ddd;
+    }
+    .btn {
+        position: fixed;
+        left: 80%;
+        top: 10px;
+        width: 100px;
+        height: 40px;
+        outline: none;
+        background-color: #52caff;
+        border: none;
+        border-radius: 3px;
+        box-shadow: 0 0 3px #ddd;
+        color: #fff;
+        cursor: pointer;
     }
 </style>
 </html>

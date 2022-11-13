@@ -11,6 +11,8 @@ class EventEmiter {
         let args = [...arguments]
         const event = args.shift()
         // 从事件池中取出所有关于 event 主题订阅的函数
+        if(!this.list[event]) return
+        // console.log('event name is >>>>>', event)
         const fns = [...this.list[event]]
         if(!fns || !fns.length) return
   

@@ -59,84 +59,49 @@ class ParseDiffEvent {
             case 'for':
                 // console.log(el)
                 // ForEventHanle.prototype.entry(el, attr)
-                this.forFn(el, attr)
+                forFn(el, attr)
                 break
             case 'if':
                 // IfEventHanle.prototype.entry(el, attr)
-                this.ifFn(el)
+                ifFn(el)
                 break
             default:
                 break
         }
     }
 
-    forFn(el, attr) {
-        // 设置节点ID
-        const id = 'x-' + IDGenerator()
-        el.setAttribute(id,'')
-        // 取出 for 结构体
-        const forStr = el.getAttribute('x-for')
-        el.removeAttribute('x-for')
-        // 解析 for 字符串
-        // x-for 的字符串
-        const strCMD = this.parseStr(attr.value)
-        // x-for 的遍历值部分
-        const leftData = this.parseItem(strCMD.item)
-        // x-for 数组部分
-        const ary = runStrcmd(strCMD.body)
-
-        const cb = function() {
-            console.log(id)
-        }
-        console.log($flat.get(ary))
-        $bus.on($flat.get(ary), cb)
-        $stack.unshift(cb)
-    }
-    ifFn(el) {
-        el.setAttribute('x-' + IDGenerator(),'')
-        el.removeAttribute('x-if')
-    }
-
     // 解析 :evnet 事件
     doubleDotEventParse() { }
-
-    // 解析字符串需要的方法
-    parseStr(str) {
-        if (str.includes('in')) {
-            let str_ary = str.split('in')
-            let item = str_ary[0].trim()
-            let body = str_ary[1].trim()
-            return { item, body }
-        }
-
-        return { item: '', body: '' }
-    }
-    parseItem(item) {
-        const hasBrace = /\(.+\)/.test(item)
-        if (hasBrace) {
-            const unwrapBrace = item.match(/\((.+)\)/)[1]
-            const hasComma = unwrapBrace.includes(',')
-            if (hasComma) {
-                const itemSplit = unwrapBrace.split(',')
-                return { item: itemSplit[0].trim(), index: itemSplit[1].trim() }
-            } else {
-                return { item: unwrapBrace, index: '' }
-            }
-        }
-        return { item: item, index: '' }
-    }
 }
 
 // 代理 handle
 const handle = Object.freeze({
     get: function (target, key) {
-        // if (typeof target[key] === 'object' && target[key] !== null) {
-        //     return new Proxy(target[key], handle)
-        // }
         return Reflect.get(target, key)
     },
     set: function (target, key, value, receices) {
         console.log(`${key} 被赋值为 ${value}`)
+        if (Array.isArray(target)) {
+            // 因为数组的 length 也会被触发，但是 length 这个属性的变化
+            // 我们并不关心，所以忽略它
+            if (key === 'length') return true
+            let old_key = $flat.get(receices) || ''
+            // console.log(old_key)
+            let abs_key = old_key
+            if (!old_key.startsWith('xdata.'))
+                abs_key = 'xdata.' + old_key
+            setTimeout(() => $bus.emit(abs_key.trim(), receices), 0)
+        }
+        if (xdata[key] !== undefined) {
+            let abs_key = key
+            if (!key.startsWith('xdata.'))
+                abs_key = 'xdata.' + key
+            setTimeout(() => $bus.emit(abs_key, value), 0)
+        }
+        if ($flat.get(receices)) {
+            let abs_key = `xdata.${$flat.get(receices)}.${key}`
+            setTimeout(() => $bus.emit(abs_key, value), 0)
+        }
         return Reflect.set(target, key, value, receices)
     }
 })
@@ -157,8 +122,12 @@ function run() {
     window.$flat = flatObjectFrom2Level(window.xdata)
     // 开始解析HTML
     new ParseEle()
+    while (window.$stack.length) {
+        const fn = window.$stack.shift()
+        fn()
+    }
 }
 
-window.onload = function() {
+window.onload = function () {
     run()
 }
