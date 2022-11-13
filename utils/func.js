@@ -13,14 +13,14 @@ function typeIs(data) {
 
 // 将一个数组的多层嵌套模式结构出单层对象的数据模式，返回一个 Map 数据结构
 function flatObjectFrom2Level(obj, tmp = {}, name = '') {
-    if (typeof obj !== 'object' ) return obj
-    
-    const core =  function(name, key) {
+    if (typeof obj !== 'object') return obj
+
+    const core = function (name, key) {
         const newName = Array.isArray(obj[name] ?? tmp[name]) ? name + '[' + key + ']' : name + '.' + key
         tmp[newName] = getXdataFromStr(newName)
-        flatObjectFrom2Level(obj, tmp ,newName)
+        flatObjectFrom2Level(obj, tmp, newName)
     }
-    if(name) {
+    if (name) {
         Object.keys(tmp[name]).forEach(nk => {
             if (typeof tmp[name][nk] === 'object' && tmp[name][nk] !== null) {
                 core(name, nk)
@@ -31,7 +31,7 @@ function flatObjectFrom2Level(obj, tmp = {}, name = '') {
             if (typeof obj[k] === 'object' && obj[k] !== null) {
                 Object.keys(obj[k]).forEach(sk => {
                     if (typeof obj[k][sk] === 'object' && obj[k][sk] !== null) {
-                        core(k,sk)
+                        core(k, sk)
                     }
                 })
             }
@@ -81,9 +81,9 @@ function IDGenerator() {
     return Number(Math
         .random()
         .toString()
-        .slice(2,11))
+        .slice(2, 11))
         .toString(16)
-        // .replace(/(\D)/g, (_,v) => Math.random() > 0.5 ? v.toUpperCase() : v)
+    // .replace(/(\D)/g, (_,v) => Math.random() > 0.5 ? v.toUpperCase() : v)
 }
 
 // 解析字符串需要的方法
@@ -114,12 +114,12 @@ function parseItem(item) {
 
 // 解决 html 内 {{any}} 的值引用问题
 function injectHTML(args) {
-    let { innerHTML, new_el,idx, leftData, dataName } = args
+    let { innerHTML, new_el, idx, leftData, dataName } = args
     let r = new RegExp(`(?=${leftData.item})|(?=${leftData.item}\\.)|(${leftData.item}\\[.+?\\]).*`)
     let hasItem = r.test(innerHTML)
     if (hasItem) {
         let res = innerHTML.replace(/({{(.+?)}})/sg, (m, v, v2) => {
-            let reg = new RegExp(`${ leftData.item }`,'g')
+            let reg = new RegExp(`${leftData.item}`, 'g')
             let translateV2 = v2.replace(reg, `${dataName.trim()}[${idx}]`)
             if (translateV2 !== v2) {
                 return runStrcmd(translateV2)
@@ -145,7 +145,7 @@ function forDataChanged(args) {
     // 插入新节点
     newAry.forEach(i => {
         let new_el = old_el.cloneNode(true)
-        new_el.itemObject = {...leftData}
+        new_el.itemObject = { ...leftData }
         parent.insertBefore(new_el, old_el)
     })
     old_el.remove()
@@ -159,13 +159,13 @@ function forDataInit(args) {
             // console.log(new_el, )
             // {{any}} 注入需要的引用值
             injectHTML({
-                innerHTML : new_el.innerHTML,
+                innerHTML: new_el.innerHTML,
                 new_el,
                 idx,
                 leftData,
                 dataName
             })
-            new_el.itemObject = {...leftData}
+            new_el.itemObject = { ...leftData }
             new_el.saveInnerHTML = el.innerHTML
             // console.log(new_el, new_el.)
             parent.insertBefore(new_el, el)
@@ -205,7 +205,7 @@ function forFn(el, attr) {
             })
         }
     }
-    
+
     $bus.on(dataName, cb)
     $stack.unshift(cb)
 }
