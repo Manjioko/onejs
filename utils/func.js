@@ -114,56 +114,124 @@ function parseItem(item) {
 
 // 解决 html 内 {{any}} 的值引用问题
 function injectHTML(args) {
-    let { innerHTML, new_el, idx, leftData, dataName } = args
+    let { innerHTML, new_el, idx, leftData, dataName, id, originInnerHTML } = args
     let r = new RegExp(`(?=${leftData.item})|(?=${leftData.item}\\.)|(${leftData.item}\\[.+?\\]).*`)
-    let hasItem = r.test(innerHTML)
+    let hasItem = r.test(new_el.innerHTML)
+    console.log(new_el)
     if (hasItem) {
-        let res = innerHTML.replace(/({{(.+?)}})/sg, (m, v, v2) => {
-            let reg = new RegExp(`${leftData.item}`, 'g')
-            let translateV2 = v2.replace(reg, `${dataName.trim()}[${idx}]`)
-            if (translateV2 !== v2) {
-                return runStrcmd(translateV2)
+        for (let e of new_el?.childNodes ?? []) {
+            if (e.nodeName === '#text') {
+                // console.log(e.textContent)
+                let res = e.textContent.replace(/.*({{(.+?)}}).*/sg, (m, v, v2) => {
+                    let reg = new RegExp(`${leftData.item}`, 'g')
+                    let translateV2 = v2.replace(reg, `${dataName.trim()}[${idx}]`)
+                    if (translateV2 !== v2) {
+                        return runStrcmd(translateV2)
+                    }
+                    return v2
+                })
+                e.textContent = res
             }
-            return v2
-        })
-        new_el.innerHTML = res
+
+            if (e.nodeName !== '#text') {
+                let new_el = e
+                injectHTML({ innerHTML, new_el, idx, leftData, dataName, id, originInnerHTML })
+            }
+        }
+        // let res = innerHTML.replace(/({{(.+?)}})/sg, (m, v, v2) => {
+        //     let reg = new RegExp(`${leftData.item}`, 'g')
+        //     let translateV2 = v2.replace(reg, `${dataName.trim()}[${idx}]`)
+        //     if (translateV2 !== v2) {
+        //         return runStrcmd(translateV2)
+        //     }
+        //     return v2
+        // })
+        // new_el.innerHTML = res
     }
 }
 
-function forDataChanged(args) {
-    let { els, newAry, id, leftData } = args
-    let old_el = els?.[0] || ''
-    if (!old_el) return
-    let parent = old_el.parentNode
-    // 把旧元素清理掉
-    let old_els = parent.querySelectorAll(`[${id}]`)
-    for (let el_item of old_els) {
-        if (el_item !== old_el) {
-            el_item.remove()
+function snapshoot(saveObject, snapShootID, snapShootData, element) {
+    // 保存地址一定是一个 Object 指针，不然毫无意义
+    if (typeIs(saveObject) !== 'Object') return
+    // 快照机只保存文本节点
+    if (!element.nodeName !== '#text') return
+    // 通过 id 去保存 text 节点快照 
+    let attributes = [...element.parentNode.attributes]
+    let hasID = attributes.some(at => at.name.includes('x-'))
+    let at = attributes.find(at => at.name.includes('x-'))
+    if(!hasID) {
+        // 有些节点可能不存在 id，先给他一个 id， 后拍照保存
+        let new_id = 'x-' + IDGenerator()
+        e.parentNode.setAttribute(new_id, '')
+        originInnerHTML[new_id] = snapShootData
+    } else {
+        if(!originInnerHTML[at.name]) {
+            // 拍照保存
+            originInnerHTML[at.name] = snapShootData
         }
     }
-    // 插入新节点
-    newAry.forEach(i => {
-        let new_el = old_el.cloneNode(true)
-        new_el.itemObject = { ...leftData }
-        parent.insertBefore(new_el, old_el)
+    
+}
+
+function forDataChanged(args) {
+    let { els, newAry, id, leftData, originInnerHTML, dataName } = args
+
+    // 全部具有相同id的元素都需要进行更新
+    let parent_ary = [...els].map(e => e.parentNode)
+    let diff_parent = [...new Set(parent_ary)]
+    // 更新数据
+    // diff_parent 是含有相同 id 元素可能被复制多份，存在于不同的父级元素中
+    // diff_parent 是将这些不同的父级元素汇集起来，后续更新相同 id 元素时，
+    // 每一个不同父级元素的内这些相同 id 的子元素，都需要做数据的更新
+    diff_parent.forEach(pa => {
+        let all_child = pa.querySelectorAll(`[${id}]`)
+        let old_el = all_child?.[0] || ''
+        if (!old_el) return
+        // 把旧元素清理掉
+        for (let el_item of all_child) {
+            if (el_item !== old_el) {
+                el_item.remove()
+            }
+        }
+        // 插入新节点
+        newAry.forEach((it, idx) => {
+            let new_el = old_el.cloneNode(true)
+            // console.log(new_el)
+            // 更新节点中text节点的值( {{}} 双大括号内的值需要变动)
+            injectHTML({
+                innerHTML: new_el.innerHTML,
+                new_el,
+                idx,
+                leftData,
+                dataName,
+                id,
+                originInnerHTML
+            })
+            new_el.itemObject = { ...leftData }
+            pa.insertBefore(new_el, old_el)
+        })
+        old_el.remove()
     })
-    old_el.remove()
 }
 function forDataInit(args) {
-    let { els, ary, leftData, dataName } = args
+    let { els, ary, leftData, dataName, originInnerHTML, id } = args
+    // console.log(originInnerHTML)
     for (let el of els) {
         const parent = el.parentNode
         ary.forEach((it, idx) => {
             const new_el = el.cloneNode(true)
-            // console.log(new_el, )
+            // console.log(new_el)
+            // 应该在此处保存初始化数据
+            // originInnerHTML[id] = new_el.innerHTML
             // {{any}} 注入需要的引用值
             injectHTML({
                 innerHTML: new_el.innerHTML,
                 new_el,
                 idx,
                 leftData,
-                dataName
+                dataName,
+                id,
+                originInnerHTML
             })
             new_el.itemObject = { ...leftData }
             new_el.saveInnerHTML = el.innerHTML
@@ -189,19 +257,25 @@ function forFn(el, attr) {
     // x-for 数组部分
     const ary = runStrcmd(strCMD.body)
 
+    // 闭包保存 originInnerHTML, originInnerHTML是后续元素更新的重要依据
+    // originInnerHTML 内保存的的形式是 id : innerHTML,我们依赖初始化时
+    // 的innerHTML去更新数据
+    let originInnerHTML = {}
+
     let dataName = $flat.get(ary)
     if (!dataName.startsWith('xdata.')) dataName = 'xdata.' + dataName
 
     const cb = function (newAry) {
         const els = document.querySelectorAll(`[${id}]`)
+        // console.log(originInnerHTML)
         // newAry 存在证明是数据变动引起的
         if (newAry) {
             forDataChanged({
-                els, newAry, id, leftData
+                els, newAry, id, leftData, originInnerHTML, dataName,
             })
         } else {
             forDataInit({
-                els, ary, leftData, dataName
+                els, ary, leftData, dataName, originInnerHTML, id
             })
         }
     }

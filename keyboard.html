@@ -14,9 +14,9 @@
     <!-- <div>hello world</div> -->
     <!-- <p x-if="xdata.sary.abc.cde[0].a">12345</p> -->
     <div x-for="item in xdata.ary" class="box">
-        <div x-for="(dd, idx) in xdata.sary.abc.cde">tip: {{ dd.a }}</div>
+        <div x-for="(dd, idx) in xdata.sary.abc.cde">tip: {{ item.title }}</div>
         <p class="p">
-            <a href="/" >点这里</a>
+            <a onclick="handleA()">点这里</a>
         </p>
     </div>
     <button onclick="clickFn()" class="btn">click</button>
@@ -36,9 +36,12 @@
         // xdata.something.four[1].xxx = !xdata.something.four[1].xxx
         // xdata.ary.push(1)
         // xdata.test['ll'] = 'xxxxx'
-        // xdata.ary.push(1)
+        xdata.ary.push({title: '十二月为公子贺'})
         // xdata.sary.abc.cde[0].a = !xdata.sary.abc.cde[0].a
         // xdata.sary.abc.cde.pop()
+        // xdata.sary.abc.cde.push({a: '隆冬明火'})
+    }
+    function handleA() {
         xdata.sary.abc.cde.push({a: '隆冬明火'})
     }
 
@@ -55,7 +58,6 @@
 <style>
     .box {
         width: 300px;
-        height: 100px;
         background-color: #65baff8a;
         display: inline-block;
         margin: 10px;
