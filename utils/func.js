@@ -112,20 +112,22 @@ function parseItem(item) {
     return { item: item, index: '' }
 }
 
-// 解决 html 内 {{any}} 的值引用问题
-function injectHTML(args) {
-    let { innerHTML, new_el, idx, leftData, dataName, id, originInnerHTML } = args
+function initNodeText(args) {
+    let { new_el, idx, leftData, dataName, id, originInnerHTML } = args
     let r = new RegExp(`(?=${leftData.item})|(?=${leftData.item}\\.)|(${leftData.item}\\[.+?\\]).*`)
     let hasItem = r.test(new_el.innerHTML)
-    console.log(new_el)
     if (hasItem) {
         for (let e of new_el?.childNodes ?? []) {
             if (e.nodeName === '#text') {
-                // console.log(e.textContent)
-                let res = e.textContent.replace(/.*({{(.+?)}}).*/sg, (m, v, v2) => {
+                // 将 {{ }} 内数据提取出来，再做替换
+                let res = e.textContent.replace(/({{(.+?)}})/sg, (m, v, v2) => {
+                    // 如果存在和 for 语句左侧 item 一致的名称，就替换，不一致则保持不变
                     let reg = new RegExp(`${leftData.item}`, 'g')
                     let translateV2 = v2.replace(reg, `${dataName.trim()}[${idx}]`)
                     if (translateV2 !== v2) {
+                        // text 改变后应该拍个快照保存
+                        snapshoot(originInnerHTML, e.textContent, e)
+                        // 运行字面量命令，并返回
                         return runStrcmd(translateV2)
                     }
                     return v2
@@ -135,42 +137,73 @@ function injectHTML(args) {
 
             if (e.nodeName !== '#text') {
                 let new_el = e
-                injectHTML({ innerHTML, new_el, idx, leftData, dataName, id, originInnerHTML })
+                initNodeText({ new_el, idx, leftData, dataName, id, originInnerHTML })
             }
         }
-        // let res = innerHTML.replace(/({{(.+?)}})/sg, (m, v, v2) => {
-        //     let reg = new RegExp(`${leftData.item}`, 'g')
-        //     let translateV2 = v2.replace(reg, `${dataName.trim()}[${idx}]`)
-        //     if (translateV2 !== v2) {
-        //         return runStrcmd(translateV2)
-        //     }
-        //     return v2
-        // })
-        // new_el.innerHTML = res
     }
 }
 
-function snapshoot(saveObject, snapShootID, snapShootData, element) {
+function dataChangedUpdeteNodeText(args) {
+    let { new_el, idx, leftData, dataName, id, originInnerHTML } = args
+    let r = new RegExp(`(?=${leftData.item})|(?=${leftData.item}\\.)|(${leftData.item}\\[.+?\\]).*`)
+    for (let getTextEle of new_el?.childNodes ?? []) {
+        if (getTextEle.nodeName === '#text') {
+            const textParentEleID = getIDFromEle(getTextEle.parentNode)
+            const snap = originInnerHTML[textParentEleID]
+            if (snap) {
+                let r = new RegExp(`(?=${leftData.item})|(?=${leftData.item}\\.)|(${leftData.item}\\[.+?\\]).*`)
+                // 存在 for 语句 item 的情况
+                let hasTouch = r.test(snap)
+                if (hasTouch) {
+                    let res = snap.replace(/({{(.+?)}})/sg, (m, v, v2) => {
+                        // 如果存在和 for 语句左侧 item 一致的名称，就替换，不一致则保持不变
+                        let reg = new RegExp(`${leftData.item}`, 'g')
+
+                        let translateV2 = v2.replace(reg, `${dataName.trim()}[${idx}]`)
+                        if (translateV2 !== v2) {
+                            // 运行字面量命令，并返回
+                            return runStrcmd(translateV2)
+                        }
+                        return v2
+                    })
+                    getTextEle.textContent = res
+                }
+            }
+        }
+
+        if (getTextEle.nodeName !== '#text') {
+            let new_el = getTextEle
+            dataChangedUpdeteNodeText({ new_el, idx, leftData, dataName, id, originInnerHTML })
+        }
+    }
+}
+
+function getIDFromEle(ele) {
+    const attr =  [...ele.attributes].find(attr => attr.name.includes('x-'))
+    return attr?.name ?? ''
+}
+
+function snapshoot(saveObject, snapShootData, element) {
     // 保存地址一定是一个 Object 指针，不然毫无意义
     if (typeIs(saveObject) !== 'Object') return
     // 快照机只保存文本节点
-    if (!element.nodeName !== '#text') return
+    if (element.nodeName !== '#text') return
     // 通过 id 去保存 text 节点快照 
     let attributes = [...element.parentNode.attributes]
     let hasID = attributes.some(at => at.name.includes('x-'))
-    let at = attributes.find(at => at.name.includes('x-'))
-    if(!hasID) {
+    if (!hasID) {
         // 有些节点可能不存在 id，先给他一个 id， 后拍照保存
         let new_id = 'x-' + IDGenerator()
-        e.parentNode.setAttribute(new_id, '')
-        originInnerHTML[new_id] = snapShootData
+        element.parentNode.setAttribute(new_id, '')
+        saveObject[new_id] = snapShootData
     } else {
-        if(!originInnerHTML[at.name]) {
+        let at = attributes.find(at => at.name.includes('x-'))
+        if (!saveObject[at.name]) {
             // 拍照保存
-            originInnerHTML[at.name] = snapShootData
+            saveObject[at.name] = snapShootData
         }
     }
-    
+    // console.log('快照',saveObject)
 }
 
 function forDataChanged(args) {
@@ -196,17 +229,8 @@ function forDataChanged(args) {
         // 插入新节点
         newAry.forEach((it, idx) => {
             let new_el = old_el.cloneNode(true)
-            // console.log(new_el)
             // 更新节点中text节点的值( {{}} 双大括号内的值需要变动)
-            injectHTML({
-                innerHTML: new_el.innerHTML,
-                new_el,
-                idx,
-                leftData,
-                dataName,
-                id,
-                originInnerHTML
-            })
+            dataChangedUpdeteNodeText({ new_el, idx, leftData, dataName, id, originInnerHTML })
             new_el.itemObject = { ...leftData }
             pa.insertBefore(new_el, old_el)
         })
@@ -220,22 +244,10 @@ function forDataInit(args) {
         const parent = el.parentNode
         ary.forEach((it, idx) => {
             const new_el = el.cloneNode(true)
-            // console.log(new_el)
             // 应该在此处保存初始化数据
-            // originInnerHTML[id] = new_el.innerHTML
-            // {{any}} 注入需要的引用值
-            injectHTML({
-                innerHTML: new_el.innerHTML,
-                new_el,
-                idx,
-                leftData,
-                dataName,
-                id,
-                originInnerHTML
-            })
+            initNodeText({ new_el, idx, leftData, dataName, id, originInnerHTML })
             new_el.itemObject = { ...leftData }
             new_el.saveInnerHTML = el.innerHTML
-            // console.log(new_el, new_el.)
             parent.insertBefore(new_el, el)
         })
         el.remove()
@@ -267,7 +279,6 @@ function forFn(el, attr) {
 
     const cb = function (newAry) {
         const els = document.querySelectorAll(`[${id}]`)
-        // console.log(originInnerHTML)
         // newAry 存在证明是数据变动引起的
         if (newAry) {
             forDataChanged({
@@ -283,8 +294,8 @@ function forFn(el, attr) {
     $bus.on(dataName, cb)
     $stack.unshift(cb)
 }
+
 function ifFn(el) {
-    // console.log(el)
     // 设置节点ID
     const id = 'x-' + IDGenerator()
     el.setAttribute(id, '')
@@ -293,7 +304,6 @@ function ifFn(el) {
 
     // 从字符串中取真实值
     const isShow = runStrcmd(ifStr)
-    // console.log(isShow)
     let dataName
     if (ifStr.endsWith(']')) {
         dataName = ifStr.replace(/^(.+)(\[\w+\])$/g, (m, v, v2) => v2 ? v : '')

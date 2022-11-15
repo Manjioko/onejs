@@ -14,7 +14,9 @@
     <!-- <div>hello world</div> -->
     <!-- <p x-if="xdata.sary.abc.cde[0].a">12345</p> -->
     <div x-for="item in xdata.ary" class="box">
-        <div x-for="(dd, idx) in xdata.sary.abc.cde">tip: {{ item.title }}</div>
+        <div x-for="(dd, idx) in xdata.sary.abc.cde">
+            <span>tip: {{ dd.a }}</span>
+        </div>
         <p class="p">
             <a onclick="handleA()">点这里</a>
         </p>
