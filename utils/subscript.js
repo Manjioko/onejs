@@ -80,7 +80,7 @@ const handle = Object.freeze({
         return Reflect.get(target, key)
     },
     set: function (target, key, value, receices) {
-        console.log(`${key} 被赋值为 ${value}`)
+        console.log(`${key} 被赋值为`,value)
         if (Array.isArray(target)) {
             // 因为数组的 length 也会被触发，但是 length 这个属性的变化
             // 我们并不关心，所以忽略它
@@ -122,8 +122,11 @@ function run() {
     window.$flat = flatObjectFrom2Level(window.xdata)
     // 开始解析HTML
     new ParseEle()
-    while (window.$stack.length) {
-        const fn = window.$stack.shift()
+    // while (window.$stack.length) {
+    //     const fn = window.$stack.shift()
+        
+    // }
+    for (let fn of window.$stack) {
         fn()
     }
 }

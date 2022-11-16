@@ -120,17 +120,26 @@ function initNodeText(args) {
         for (let e of new_el?.childNodes ?? []) {
             if (e.nodeName === '#text') {
                 // 将 {{ }} 内数据提取出来，再做替换
-                let res = e.textContent.replace(/({{(.+?)}})/sg, (m, v, v2) => {
+                let res = e.textContent.replace(/({{([^\{^\}]+)}})/g, (m, v, v2) => {
                     // 如果存在和 for 语句左侧 item 一致的名称，就替换，不一致则保持不变
+                    // console.log('v2: ', v2, 'm: ', m, 'v1', v)
                     let reg = new RegExp(`${leftData.item}`, 'g')
                     let translateV2 = v2.replace(reg, `${dataName.trim()}[${idx}]`)
                     if (translateV2 !== v2) {
+                        // 字面量计算结果
+                        const result = runStrcmd(translateV2)
+                        let suffix = v2.split('.')
+                        suffix.shift()
+                        suffix = suffix.join('.')
                         // text 改变后应该拍个快照保存
-                        snapshoot(originInnerHTML, e.textContent, e)
+                        // console.log('需要的快照：', runStrcmd(translateV2),)
+                        // snapshoot(originInnerHTML, e.textContent, e)
+                        console.log('--------------shoot-------------', result)
+                        snapshoot(originInnerHTML, { str: result, suffix }, e)
                         // 运行字面量命令，并返回
-                        return runStrcmd(translateV2)
+                        return result
                     }
-                    return v2
+                    return v
                 })
                 e.textContent = res
             }
@@ -145,28 +154,44 @@ function initNodeText(args) {
 
 function dataChangedUpdeteNodeText(args) {
     let { new_el, idx, leftData, dataName, id, originInnerHTML } = args
-    let r = new RegExp(`(?=${leftData.item})|(?=${leftData.item}\\.)|(${leftData.item}\\[.+?\\]).*`)
+    // console.log('传进来的元素', new_el)
+    // let r = new RegExp(`(?=${leftData.item})|(?=${leftData.item}\\.)|(${leftData.item}\\[.+?\\]).*`)
     for (let getTextEle of new_el?.childNodes ?? []) {
         if (getTextEle.nodeName === '#text') {
             const textParentEleID = getIDFromEle(getTextEle.parentNode)
             const snap = originInnerHTML[textParentEleID]
-            if (snap) {
-                let r = new RegExp(`(?=${leftData.item})|(?=${leftData.item}\\.)|(${leftData.item}\\[.+?\\]).*`)
+            if (snap?.str) {
+                // let r = new RegExp(`(?=${leftData.item})|(?=${leftData.item}\\.)|(${leftData.item}\\[.+?\\]).*`)
+                let r = new RegExp(`${snap.str}.*`)
                 // 存在 for 语句 item 的情况
-                let hasTouch = r.test(snap)
+                let hasTouch = r.test(snap.str)
+                console.log(new_el, r)
                 if (hasTouch) {
-                    let res = snap.replace(/({{(.+?)}})/sg, (m, v, v2) => {
-                        // 如果存在和 for 语句左侧 item 一致的名称，就替换，不一致则保持不变
-                        let reg = new RegExp(`${leftData.item}`, 'g')
-
-                        let translateV2 = v2.replace(reg, `${dataName.trim()}[${idx}]`)
-                        if (translateV2 !== v2) {
-                            // 运行字面量命令，并返回
-                            return runStrcmd(translateV2)
+                    // console.log('--------------- content -----------', getTextEle, r)
+                    // let res = snap.replace(/({{([^\{^\}]+)}})/g, (m, v, v2) => {
+                    //     // 如果存在和 for 语句左侧 item 一致的名称，就替换，不一致则保持不变
+                    //     let reg = new RegExp(`${leftData.item}`, 'g')
+                    //     // console.log(snap,getTextEle.textContent)
+                    //     let translateV2 = v2.replace(reg, `${dataName.trim()}[${idx}]`)
+                    //     if (translateV2 !== v2) {
+                    //         // 运行字面量命令，并返回
+                    //         return runStrcmd(translateV2)
+                    //     }
+                    //     // console.log(v)
+                    //     return v
+                    // })
+                    // // console.log(res)
+                    // getTextEle.textContent = res
+                    let reg_top = new RegExp(`${snap.str}`, 'g')
+                    let res = getTextEle.textContent.replace(reg_top, (m, v) => {
+                        if (snap.suffix) {
+                            return runStrcmd(`${dataName.trim()}[${idx}].${snap.suffix}`)
                         }
-                        return v2
+                        return runStrcmd(`${dataName.trim()}[${idx}]`)
                     })
-                    getTextEle.textContent = res
+                    if (res) {
+                        getTextEle.textContent = res
+                    }
                 }
             }
         }
@@ -179,7 +204,7 @@ function dataChangedUpdeteNodeText(args) {
 }
 
 function getIDFromEle(ele) {
-    const attr =  [...ele.attributes].find(attr => attr.name.includes('x-'))
+    const attr =  [...ele.attributes].find(attr => attr.name.includes('ft-'))
     return attr?.name ?? ''
 }
 
@@ -188,27 +213,41 @@ function snapshoot(saveObject, snapShootData, element) {
     if (typeIs(saveObject) !== 'Object') return
     // 快照机只保存文本节点
     if (element.nodeName !== '#text') return
+    if (!window?.$snap) window.$snap = {}
     // 通过 id 去保存 text 节点快照 
     let attributes = [...element.parentNode.attributes]
-    let hasID = attributes.some(at => at.name.includes('x-'))
+    let hasID = attributes.some(at => at.name.includes('ft-'))
     if (!hasID) {
         // 有些节点可能不存在 id，先给他一个 id， 后拍照保存
-        let new_id = 'x-' + IDGenerator()
+        let new_id = 'ft-' + IDGenerator()
         element.parentNode.setAttribute(new_id, '')
         saveObject[new_id] = snapShootData
+        window.$snap[new_id] = snapShootData
     } else {
-        let at = attributes.find(at => at.name.includes('x-'))
+        let at = attributes.find(at => at.name.includes('ft-'))
         if (!saveObject[at.name]) {
             // 拍照保存
             saveObject[at.name] = snapShootData
+            window.$snap[at.name] = snapShootData
+        }
+        
+    }
+    console.log('快照',saveObject)
+}
+
+function deleteSnapShoot(orginObj, orginEl) {
+    for (let el of orginEl?.childNodes ?? []) {
+        if (el.nodeName === '#text') {
+            const id = getIDFromEle(el.parentNode)
+            delete orginObj[id]
+        } else {
+            deleteSnapShoot(orginObj, el)
         }
     }
-    // console.log('快照',saveObject)
 }
 
 function forDataChanged(args) {
     let { els, newAry, id, leftData, originInnerHTML, dataName } = args
-
     // 全部具有相同id的元素都需要进行更新
     let parent_ary = [...els].map(e => e.parentNode)
     let diff_parent = [...new Set(parent_ary)]
@@ -218,28 +257,36 @@ function forDataChanged(args) {
     // 每一个不同父级元素的内这些相同 id 的子元素，都需要做数据的更新
     diff_parent.forEach(pa => {
         let all_child = pa.querySelectorAll(`[${id}]`)
-        let old_el = all_child?.[0] || ''
+        let old_el = all_child?.[all_child.length - 1] || ''
+        
         if (!old_el) return
         // 把旧元素清理掉
         for (let el_item of all_child) {
             if (el_item !== old_el) {
                 el_item.remove()
+                // 元素删除，需要删除掉保存在快照中的数据
+                // console.log(el_item)
+                // deleteSnapShoot(originInnerHTML, el_item)
             }
         }
+        console.log('-------------orgin------------',originInnerHTML)
         // 插入新节点
         newAry.forEach((it, idx) => {
             let new_el = old_el.cloneNode(true)
             // 更新节点中text节点的值( {{}} 双大括号内的值需要变动)
+            // console.log('新元素 ', new_el)
             dataChangedUpdeteNodeText({ new_el, idx, leftData, dataName, id, originInnerHTML })
             new_el.itemObject = { ...leftData }
             pa.insertBefore(new_el, old_el)
         })
+        // console.log('最后的元素 ', old_el)
         old_el.remove()
+        // deleteSnapShoot(originInnerHTML, old_el)
+        // console.log('--------originInnerHTML ---------', originInnerHTML)
     })
 }
 function forDataInit(args) {
     let { els, ary, leftData, dataName, originInnerHTML, id } = args
-    // console.log(originInnerHTML)
     for (let el of els) {
         const parent = el.parentNode
         ary.forEach((it, idx) => {
@@ -251,6 +298,8 @@ function forDataInit(args) {
             parent.insertBefore(new_el, el)
         })
         el.remove()
+        // 元素删除，需要删除掉保存在快照中的数据
+        // delete originInnerHTML[getIDFromEle(el)]
     }
 }
 

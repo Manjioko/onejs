@@ -15,7 +15,7 @@
     <!-- <p x-if="xdata.sary.abc.cde[0].a">12345</p> -->
     <div x-for="item in xdata.ary" class="box">
         <div x-for="(dd, idx) in xdata.sary.abc.cde">
-            <span>tip: {{ dd.a }}</span>
+            <span> cde: {{ dd.a }},   ary: {{item.title}}</span>
         </div>
         <p class="p">
             <a onclick="handleA()">点这里</a>
@@ -30,7 +30,7 @@
         test: { four: [1,true]},
         ary: [{title: '七月雷雨'},{title: '九月流火'},{title: '十月硕鼠在梁上'}],
         sary: {abc: {
-            cde: [{a:'七月雷雨'},{a:'九月流火'},{a:'十月硕鼠在梁上'}]
+            cde: [{a:'刘姥姥长啸'},{a:'林黛玉打虎'},{a:'陈咬金葬花'}]
         }}
     }
 
@@ -38,7 +38,7 @@
         // xdata.something.four[1].xxx = !xdata.something.four[1].xxx
         // xdata.ary.push(1)
         // xdata.test['ll'] = 'xxxxx'
-        xdata.ary.push({title: '十二月为公子贺'})
+        xdata.ary.shift()
         // xdata.sary.abc.cde[0].a = !xdata.sary.abc.cde[0].a
         // xdata.sary.abc.cde.pop()
         // xdata.sary.abc.cde.push({a: '隆冬明火'})
