@@ -120,6 +120,8 @@ function run() {
     window.xdata = deepProxy(window.xdata, handle)
     // 平铺 xdata 嵌套数据
     window.$flat = flatObjectFrom2Level(window.xdata)
+    // 保存 body 的初始结构
+    window.$body = document.body.innerHTML
     // 开始解析HTML
     new ParseEle()
     // while (window.$stack.length) {

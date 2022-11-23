@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="./index.js" type="module"></script>
+    <title>数据绑定</title>
+</head>
+<body>
+    <div m-for="(item, index1) in ary">
+        <div>{{item.title}}</div>
+        <div>
+            <span m-for="(item, index2) in ary">{{item.value}}</span>
+        </div>
+    </div>
+    <div m-for="(item, idx3) in ary">
+        Hello World
+        <i m-for="(i,idx4) in ary"></i>
+    </div>
+    <div m-for="(m, index5) in ary">
+        Hello World
+        <i m-for="  (x,index6)    in abc"></i>
+        <!-- <code m-for="in abc"></code> -->
+    </div>
+</body>
+<script>
+    $data = {
+        ary: [{ title: '你好世界' },{ title: 'Hello World' },{ title: 'ハロー·ワールド。' },{ title: 'Привет, мир.' },]
+    }
+</script>
+</html>

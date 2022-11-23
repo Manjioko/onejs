@@ -269,7 +269,7 @@ function forDataChanged(args) {
                 // deleteSnapShoot(originInnerHTML, el_item)
             }
         }
-        console.log('-------------orgin------------',originInnerHTML)
+        // console.log('-------------orgin------------',originInnerHTML)
         // 插入新节点
         newAry.forEach((it, idx) => {
             let new_el = old_el.cloneNode(true)
