@@ -4,12 +4,14 @@ const prefixStr = {
     forId: 'mf-',
     forStr: 'm-for',
     ifId: 'mi-',
-    ifStr: 'm-if'
+    ifStr: 'm-if',
+    textId: 'mt-'
 }
 
 export default function template(doc) {
     if (!doc) return
     recursiveEles(doc.body, recurCallback)
+    handleTextEle()
 }
 
 // 获取元素的全部属性
@@ -55,6 +57,39 @@ function recursiveAllNode(orginEle, cb) {
     }
 }
 
+function handleTextEle() {
+    // print(window.$propertyid)
+    window
+    .$propertyid
+    .split('/')
+    .filter(e => e)
+    .forEach(strs => {
+        strs
+        .split('|')
+        .filter(e => e)
+        .forEach(str => {
+            const el = document.querySelector(`[${str}]`)
+            const cb = function(el) {
+                if (el.nodeName === '#text') {
+                    if (/{{[^{^}]+}}/g.test(el.nodeValue)) {
+                        const id = prefixStr.textId + IDGenerator(8)
+                        const struct = window.$forStruct[str] 
+                        el.parentNode.setAttribute(id, '')
+                        if (struct.text) {
+                            struct.text[id] = el.nodeValue
+                        } else {
+                            struct.text = {
+                                [id]: el.nodeValue
+                            }
+                        }
+                    }
+                }
+            }
+            recursiveAllNode(el, cb)
+        })
+    });
+}
+
 // 收集同一个节点内部包括其子节点的全部属性 id
 function collectPropertyId(el, parentEl) {
     if (!window.$propertyid) {
@@ -62,7 +97,8 @@ function collectPropertyId(el, parentEl) {
     }
 
     if (!el) {
-        throw Error('元素 el 出错了：el : ' + el)
+        // throw Error('元素 el 出错了：el : ' + el)
+        err(el, '元素错误')
     }
     // 传入父级元素时，默认在 $propertyid 上已经记录
     // 父级元素的 id 信息
